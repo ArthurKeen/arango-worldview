@@ -46,7 +46,7 @@ This is an **npm workspaces** monorepo:
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/<your-org>/arango-worldview.git
+git clone https://github.com/ArthurKeen/arango-worldview.git
 cd arango-worldview
 npm install
 ```

@@ -18,8 +18,27 @@
     "services/*",
     "packages/*"
   ],
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "arangodb",
+    "cesium",
+    "resium",
+    "nextjs",
+    "fastify",
+    "opensky",
+    "celestrak",
+    "3d-globe",
+    "geospatial",
+    "real-time"
+  ],
+  "author": "Arthur Keen <aakeen@yahoo.com>",
   "license": "ISC",
-  "description": ""
+  "description": "Browser-based 3D globe command center fusing real-time OpenSky aircraft, CelesTrak satellites, and events into an interactive 4D map powered by ArangoDB.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArthurKeen/arango-worldview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ArthurKeen/arango-worldview/issues"
+  },
+  "homepage": "https://github.com/ArthurKeen/arango-worldview#readme"
 }
