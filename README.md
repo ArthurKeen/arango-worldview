@@ -108,7 +108,25 @@ Edit `.env` and set at least `ARANGO_ROOT_PASSWORD`. Defaults:
 | `ARANGO_DB_NAME` | `worldview` | Database the app creates/uses |
 | `API_PORT` | `8080` | Fastify API port |
 | `INGEST_TICK_MS` | `15000` | Polling interval for OpenSky + CelesTrak |
+| `OPENSKY_USERNAME` | *(unset)* | Optional OpenSky account (see [API keys](#api-keys--credentials)) |
+| `OPENSKY_PASSWORD` | *(unset)* | Optional OpenSky account password |
 | `OPENSKY_BBOX` | *(unset)* | Optional `west,south,east,north` to limit ingest payload |
+| `CELESTRAK_TLE_URL` | `.../GROUP=active&FORMAT=tle` | Override to fetch a different satellite group |
+| `SATELLITE_LIMIT` | `200` | Max satellites ingested per CelesTrak snapshot |
+
+### API keys & credentials
+
+**Short version: no paid API keys are required.** The only optional credential is a free OpenSky Network account.
+
+| Service | Required? | What you need | Why |
+|---|---|---|---|
+| **OpenSky Network** (aircraft / ADS-B) | *Optional but recommended* | Free account — username + password in `OPENSKY_USERNAME` / `OPENSKY_PASSWORD` | Anonymous requests work but are heavily rate-limited (you will see `429 Too Many Requests` during development). A free account gives you a far more usable quota. Register at [opensky-network.org](https://opensky-network.org/). The ingest service uses HTTP Basic auth; OpenSky is migrating to OAuth2 client-credentials, but legacy Basic still works for existing accounts. |
+| **CelesTrak** (satellite TLEs) | No | — | Public, no key. Honor their [fair-use policy](https://celestrak.org/webmaster.php#usage) (don't hammer it; `INGEST_TICK_MS=15000` is fine). |
+| **Esri World Imagery / Boundaries** (base map) | No | — | Used via public ArcGIS tile URLs with attribution (`Tiles © Esri`) already wired in. For heavy or production use, review [Esri's terms](https://www.esri.com/en-us/legal/terms/full-master-agreement) and consider your own imagery provider. |
+| **ArangoDB** | *Required (local)* | `ARANGO_ROOT_PASSWORD` in `.env` | Not a third-party key — just the local Docker root password. |
+| **satellite.js** (SGP4 propagation) | No | — | Bundled npm library, no external service calls. |
+
+There are **no keys needed** for GPS jamming, actions, strikes, airspace closures, or vessels — those overlays all use synthetic seed data today.
 
 ### 3. Start ArangoDB
 
