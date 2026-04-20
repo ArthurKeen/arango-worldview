@@ -1,0 +1,30 @@
+services:
+  arangodb:
+    image: arangodb/arangodb:3.12
+    container_name: worldview-arangodb
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD:?set in .env}
+    restart: unless-stopped
+    ports:
+      # Avoid host port 28529 (already used on this machine).
+      # Also avoid 38529 (already used by another local Arango container: "nasic").
+      - "${ARANGO_HOST_PORT:-48529}:8529"
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+      - arangodb_apps:/var/lib/arangodb3-apps
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-lc",
+          "wget -qO- \"http://root:${ARANGO_ROOT_PASSWORD}@127.0.0.1:8529/_api/version\" >/dev/null",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  arangodb_data:
+  arangodb_apps:
+

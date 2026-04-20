@@ -1,0 +1,25 @@
+{
+  "name": "arango-worldview",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,ingest,web -c blue,magenta,green \"npm:dev -w services/api\" \"npm:dev -w services/ingest\" \"npm:dev -w apps/web\"",
+    "dev:api": "npm run dev -w services/api",
+    "dev:ingest": "npm run dev -w services/ingest",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -ws",
+    "lint": "npm run lint -ws"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
