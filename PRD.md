@@ -1,5 +1,13 @@
 ## Product Requirements Document (PRD)
 
+> **Status (as of April 2026).** This is the **original PRD** written in March 2026 before implementation began. It has been annotated with current implementation status so readers can distinguish "what we planned" from "what shipped":
+>
+> - ✅ **Implemented** — in the current `main` branch.
+> - 🚧 **Partial** — some parts shipped; scope narrower than the PRD described.
+> - ⏳ **Not implemented** — still on the backlog.
+>
+> The app today ships MVP + most of V1 (Epics 1–5). Epics 6 (saved viewpoints) and 7 (visual modes) are not implemented. Streaming updates are simulated via React Query polling rather than SSE/WebSockets. See `README.md` for the user-facing feature list and `SPEC.md` for the current technical design.
+
 ### **Project name**
 **WorldView-Arango**
 
@@ -50,26 +58,26 @@
 
 ### **5) Product scope**
 #### **MVP scope (buildable, demo-ready)**
-- **Globe**: Cesium viewer with base imagery; optional 3D Tiles integration later.
-- **Aircraft overlay**: live positions in viewport + click-to-inspect.
-- **Satellites overlay**: curated set (e.g., top 200 from CelesTrak) with predicted track segments.
-- **Events overlay (lightweight)**: manual import or a simple feed; geocoded markers.
-- **Time controls**:
-  - Aircraft: last \(N\) minutes trail (e.g., 30–120m) for selected asset
-  - Satellites: predicted orbit polyline for next \(N\) minutes (e.g., 90m)
-- **Data persistence**: ArangoDB holds assets + latest telemetry + rolling historical telemetry (TTL).
-- **Viewport API**: backend endpoint that returns “what’s in view” efficiently.
+- ✅ **Globe**: Cesium viewer with Esri World Imagery + boundaries/labels overlay. (3D Tiles integration deferred.)
+- ✅ **Aircraft overlay**: live OpenSky positions in viewport + click-to-inspect.
+- ✅ **Satellites overlay**: CelesTrak TLEs propagated with SGP4 via satellite.js; viewport-filtered.
+- ✅ **Events overlay**: event schema + `/events/query`; demo seed endpoints populate GPS jamming, actions, strikes, airspace closures.
+- ✅ **Time controls**:
+  - Aircraft: recent-trail rendering via `/assets/:key/trail` and `/viewport/tracks`.
+  - Satellites: current position + track overlay (predicted-orbit polyline segments via bucketed telemetry; live SGP4 propagation happens in the ingest service, not the browser).
+- ✅ **Data persistence**: ArangoDB collections `assets`, `telemetry_latest`, `telemetry_points`, `telemetry_buckets`, `events`.
+- ✅ **Viewport API**: `POST /viewport/query` (LIVE) and `POST /viewport/snapshot` (PLAYBACK) with per-type reservation to prevent dense aircraft from crowding out satellites.
 
 #### **V1 scope (expanded demo)**
-- **Time slider (4D playback)**: timeline scrubber + playback controls to reconstruct “what the map looked like” at time \(t\).
-- **GPS jamming tiles**: time-bounded grid/tiles overlay showing GNSS interference intensity/coverage.
-- **Event taxonomy (“actions”)**: structured event types (e.g., US actions, Iranian actions, strikes, airspace closures) with time windows, sources, and confidence.
-- **Airspace closures / no-fly zones**: polygon overlays with time bounds.
-- **Maritime (AIS) overlay**: vessels as assets with live + historical tracks (same telemetry model).
-- **Visual modes**: shader/post-processing toggles (CRT, NVG, FLIR-like palette, cel shading).
-- **Saved viewpoints**: bookmarks of camera position + active layers.
-- **Improved events**: multiple sources, dedupe, relevance ranking.
-- **Streaming updates**: websocket/SSE for near-real-time telemetry refresh.
+- ✅ **Time slider (4D playback)**: LIVE ↔ PLAYBACK toggle, 1×/5×/15×/60× playback speeds, timeline-marker strip aligned to the slider, click-to-fly on markers.
+- ✅ **GPS jamming tiles**: hex-grid overlay rendered as ground-clamped ellipses, severity-coloured, time-window aware. *Demo seed data — no live feed.*
+- ✅ **Event taxonomy ("actions")**: kinds `action_us`, `action_iran`, `strike`, `airspace_closure`, `gps_jamming`, `maritime_disruption`; severity + confidence + tags + geometry. *Demo seed data.*
+- ✅ **Airspace closures / no-fly zones**: polygon events rendered as a 3D fence with stripe material + glow outline; uses the Iran country boundary (`IRN.geo.json`) when `jurisdiction: "IRN"`.
+- ✅ **Maritime (AIS) overlay**: `vessel` asset type with live + historical tracks via the shared telemetry model. *Demo seed data only — no live AIS feed integrated.*
+- ⏳ **Visual modes**: shader/post-processing toggles (CRT, NVG, FLIR-like palette, cel shading). *Not implemented.*
+- ⏳ **Saved viewpoints**: bookmarks of camera position + active layers. *Not implemented.* (Two hard-coded "Focus Iran" / "Focus Gulf" buttons exist as a lightweight substitute.)
+- 🚧 **Improved events**: schema in place; dedupe / multi-source / relevance ranking not implemented (single demo "source" today).
+- 🚧 **Streaming updates**: implemented as **React Query polling** (5–15 s cadence depending on layer), not SSE/WebSockets.
 
 #### **Stretch**
 - **CCTV**: curated public camera links geolocated and projected/attached in the scene (no archival).
@@ -117,61 +125,38 @@
 ### **11) V1 backlog (epics → tasks)**
 This backlog is ordered to prioritize the “WorldView-defining” features first: **Time Slider** and **GPS jamming tiles**.
 
-#### **Epic 1 — Time slider (4D playback)**
-- **E1.1**: Define time UX
-  - Add timeline UI: scrubber, play/pause, speed selector (e.g., 1×, 5×, 15×, 60×)
-  - Add “LIVE” mode vs “PLAYBACK” mode toggle
-  - Add time range selector (last 1h / 6h / 24h)
-- **E1.2**: API support for playback snapshots
-  - Add backend endpoint to return “state at time \(t\)” for a viewport (aircraft + satellites)
-  - Add downsampling strategy (server-side) to keep payload bounded
-  - Add endpoint for “available data range” (min/max timestamps for slider)
-- **E1.3**: Data retention policy for time travel
-  - Adjust TTL to retain enough telemetry for desired playback window (e.g., 24h default)
-  - Add per-source sampling rules (aircraft heavy; satellites light)
-- **E1.4**: Frontend rendering
-  - Render playback entities without flicker (update in place)
-  - Show trails/ghosting for selected entity during playback
-  - Show “data freshness” indicator and “missing data” gaps
+#### **Epic 1 — Time slider (4D playback)** ✅
+- ✅ **E1.1**: LIVE/PLAYBACK toggle; scrubber; play/pause; 1×/5×/15×/60× speeds. Time-range selector shipped as a 3h/6h/12h timeline-strip window.
+- ✅ **E1.2**: `POST /viewport/snapshot` returns state-at-`t` using per-minute `telemetry_buckets` with per-type slot reservation; `GET /timeline/range` returns min/max available timestamps.
+- 🚧 **E1.3**: Buckets collection is used for fast playback; **TTL policies are not yet configured** — telemetry accumulates indefinitely until managed manually.
+- 🚧 **E1.4**: Playback entities update in place; selected-asset trail renders. **"Data freshness" / "missing-data gaps" indicators are not implemented.**
 
-#### **Epic 2 — GPS jamming tiles (GNSS interference)**
-- **E2.1**: Event model + ingestion contract
-  - Define `gps_jamming` event schema (tile/grid id, severity, time window, source)
-  - Add importer path (manual JSON first; automated feed later)
-- **E2.2**: Backend query + performance
-  - Add `/events/query` filters for `kind=gps_jamming`
-  - Ensure geo + time indexes make viewport queries fast
-- **E2.3**: Frontend overlay
-  - Render tiles as screen-space rectangles / polygons with intensity color scale
-  - Add legend + toggle + time-range binding (tiles change as slider moves)
-  - Add hover/click inspect (tile metadata)
+#### **Epic 2 — GPS jamming tiles (GNSS interference)** ✅ (with demo data)
+- ✅ **E2.1**: `gps_jamming` event schema implemented (`kind`, `severity`, `tsStart/tsEnd`, `geometry: Polygon`, `source`, `confidence`, `tags`). **Importer is the `/events/seed-demo-gps-jamming` hex-grid generator**; no live GNSS-interference feed integrated.
+- ✅ **E2.2**: `POST /events/query` supports `kinds` + `minSeverity` + bbox + time-window filters.
+- ✅ **E2.3**: Tiles render as ground-clamped ellipses, severity-coloured (yellow / orange / red), toggled by "GPS jamming tiles" checkbox and bound to the playback time window. Hover/click inspect not yet wired up.
 
-#### **Epic 3 — “Actions” (US / Iran / strikes) and event taxonomy**
-- **E3.1**: Expand events schema
-  - Standardize `kind` enum and minimal required fields (title, source, confidence, geometry, time)
-  - Add tagging for “US action” vs “Iran action” and subtypes
-- **E3.2**: Event UX
-  - Timeline markers for major actions
-  - Filter panel by kind/country/source/confidence
-- **E3.3**: Relations (optional)
-  - Create links between events ↔ assets (nearby, mentioned, correlated)
+#### **Epic 3 — "Actions" (US / Iran / strikes) and event taxonomy** ✅ (with demo data)
+- ✅ **E3.1**: Kind taxonomy in use: `action_us`, `action_iran`, `strike`, `airspace_closure`, `gps_jamming`, `maritime_disruption`. Required fields: `title`, `source`, `confidence`, `severity`, `geometry`, `tsStart[/tsEnd]`, `tags`.
+- ✅ **E3.2**: Timeline-strip markers colour-coded by kind; click to fly to event + set playback time. Filter panel is currently per-kind checkboxes (Actions / GPS jamming / Vessels); no confidence/source facets yet.
+- ⏳ **E3.3**: Event ↔ asset graph relations **not implemented**.
 
-#### **Epic 4 — Airspace closures / no-fly zones**
-- **E4.1**: Model closures as polygon events with `tsStart/tsEnd`
-- **E4.2**: Overlay + styling + labels (country, status)
-- **E4.3**: Time slider integration (zones appear/disappear over time)
+#### **Epic 4 — Airspace closures / no-fly zones** ✅
+- ✅ **E4.1**: Modeled as `airspace_closure` events with polygon geometry + `tsStart/tsEnd` + `jurisdiction`.
+- ✅ **E4.2**: Polygon overlay with transparent cyan fill, stripe-textured 3D wall ("fence"), magenta outline with glow; prefers the country boundary GeoJSON (e.g. `IRN.geo.json`) over the raw event polygon when `jurisdiction` is set.
+- ✅ **E4.3**: Time-slider integration — closures appear/disappear by their `tsStart/tsEnd`.
 
-#### **Epic 5 — Maritime AIS overlay**
-- **E5.1**: Add `vessel` assets + telemetry ingestion
-- **E5.2**: Viewport query support + clustering
-- **E5.3**: Playback + trails for vessels
+#### **Epic 5 — Maritime AIS overlay** ✅ (demo data only)
+- ✅ **E5.1**: `vessel` asset type in the shared schema; `/demo/seed-vessels` seeds vessel assets + telemetry + buckets.
+- ✅ **E5.2**: `/viewport/query` + `/viewport/snapshot` accept `"vessel"` as a type; no clustering yet (density has been low enough in demos).
+- ✅ **E5.3**: Playback + trails for vessels via shared `/viewport/tracks`.
+- ⏳ **No live AIS feed integrated** (AISStream/AISHub/etc.) — everything is synthetic demo data.
 
-#### **Epic 6 — Saved viewpoints + sharing**
-- **E6.1**: Save camera position + time state + layer toggles
-- **E6.2**: Deep-link URLs to a viewpoint
+#### **Epic 6 — Saved viewpoints + sharing** ⏳ Not implemented
+- Two hard-coded camera presets exist in `CameraControls` ("Focus Iran", "Focus Gulf") as lightweight substitutes.
+- Deep-link URLs (bbox, time, layer state) are not implemented.
 
-#### **Epic 7 — Visual modes (shader pipeline)**
-- **E7.1**: Define shader presets (CRT/NVG/FLIR/cel)
-- **E7.2**: Toggle UX + performance guardrails
+#### **Epic 7 — Visual modes (shader pipeline)** ⏳ Not implemented
+- Scene tweaks (atmosphere off, fog off, sharper tiles) are hard-coded in `SceneTweaks`, but no user-toggleable CRT/NVG/FLIR/cel shader presets exist.
 
 
